@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Pengeluaran</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f9f6fb;
+      font-size: 12px;
+      padding: 10px;
+    }
+    h2 { text-align: center; color: #a259e6; font-size: 1.35rem; margin-bottom: 1em; }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+      justify-content: center;
+    }
+    .filters label {
+      font-size: 13px;
+      margin-right: 2px;
+      white-space: nowrap;
+      color: #a259e6;
+      margin-left: 8px;
+    }
+    .filters input, .filters select {
+      font-size: 12px;
+      padding: 3px 6px;
+      border: 1px solid #e6d8f7;
+      border-radius: 3px;
+      background: #f4eaff;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+    .filters input {
+      width: 280px;
+      max-width: 380px;
+      transition: width 0.2s;
+    }
+    .filters select {
+      width: 60px;
+      max-width: 80px;
+      min-width: 44px;
+      text-align: center;
+      padding-left: 0;
+      padding-right: 0;
+    }
+    .total-row-info { text-align: right; color: #a259e6; font-weight: bold; font-size: 13px; margin-top: -2px; margin-bottom: 6px; margin-right: 6px; }
+    .table-container {
+      overflow-x: auto; background: #f4eaff; border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(162,89,230,0.07); margin-bottom: 12px; max-width: 100vw;
+    }
+    table { border-collapse: collapse; width: 100%; background: #f4eaff; min-width: 600px; font-size: 11.5px; }
+    th, td { border: 1px solid #e6d8f7; padding: 6px 8px; background: inherit; white-space: nowrap; box-sizing: border-box; }
+    th {
+      background: #e6d8f7; color: #a259e6; position: sticky; top: 0; z-index: 10; user-select: none;
+      box-shadow: 0 2px 6px -3px #a259e6;
+    }
+    th.sortable { cursor: pointer; }
+    .sort-icon { font-size: 12px; margin-left: 3px; color: #a259e6; vertical-align: middle; font-weight: bold; }
+    .sort-icon.inactive { color: #bdbdbd; font-weight: normal; }
+    .hidden-col { display: none; }
+    tr:nth-child(even) td { background-color: #ede6fa; }
+    tr:nth-child(odd) td { background-color: #f4eaff; }
+    .pagination { margin-top: 6px; font-size: 12px; text-align: center; user-select: none; }
+    .pagination button {
+      margin-right: 2px; padding: 4px 8px; font-size: 12px; border-radius: 4px;
+      border: 1px solid #e6d8f7; background: #fff; color: #a259e6; cursor: pointer; transition: background 0.2s;
+    }
+    .pagination button.active,
+    .pagination button:disabled { background: #e6d8f7; color: #a259e6; cursor: default; font-weight: bold; }
+    .pagination .ellipsis {
+      margin: 0 4px; color: #a259e6; font-weight: bold; font-size: 14px;
+      pointer-events: none; background: none; border: none;
+    }
+    td.nominal-kanan {
+      text-align: right;
+    }
+    @media (max-width: 1024px) {
+      table { font-size: 10.5px; min-width: 350px; }
+      .total-row-info { font-size: 12px; }
+    }
+    @media (max-width: 700px) {
+      .filters {
+        flex-direction: row;
+        gap: 4px;
+        justify-content: flex-start;
+        align-items: center;
+        max-width: 100vw;
+        flex-wrap: nowrap;
+      }
+      .filters input {
+        flex: 1 1 0;
+        width: 0;
+        min-width: 44px;
+        max-width: 100vw;
+        margin-bottom: 0;
+      }
+      .filters label {
+        margin-left: 8px;
+        margin-right: 2px;
+      }
+      .filters select {
+        width: 44px;
+        min-width: 38px;
+        max-width: 55px;
+        margin-bottom: 0;
+        text-align: center;
+      }
+      .total-row-info { font-size: 12px; }
+      table { font-size: 10.5px; min-width: 350px; }
+    }
+    @media (max-width: 450px) {
+      table { font-size: 10px; min-width: 320px; }
+      th, td { padding: 4px 4px; }
+      .filters input, .filters select { font-size: 11px; padding: 3px 4px; }
+    }
+  </style>
+</head>
+<body>
+  <h2>Pengeluaran</h2>
+  <div class="filters">
+    <input type="text" id="searchInput" placeholder="Cari di semua kolom...">
+    <label for="rowsPerPage">Baris/halaman:</label>
+    <select id="rowsPerPage">
+      <option value="5">5</option>
+      <option value="8" selected>8</option>
+      <option value="10">10</option>
+      <option value="15">15</option>
+      <option value="20">20</option>
+      <option value="50">50</option>
+    </select>
+  </div>
+  <div class="total-row-info" id="totalRowInfo"></div>
+  <div class="table-container">
+    <table id="mainTable"></table>
+  </div>
+  <div class="pagination" id="pagination"></div>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script>
+    // Hidden columns: 1, 2, 5, 8 (index mulai dari 0)
+    const hiddenCols = [0, 1, 4, 7];
+    // Kolom sortable: Tanggal (2), Kategori Pengeluaran (5), Nominal (3)
+    const sortableCols = [2, 3, 5];
+
+    // Ganti link ke CSV sesuai permintaan
+    const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRQBSWp7dBKus6wO8G-vBtSW9ZpKlRbmNLbXsaWQZeaQU_ZEY9p9EujIGTyIPVzb5cgVTlq9d0Lf29P/pub?gid=196562253&single=true&output=csv";
+    let rowsPerPage = 8;
+    let tableData = [], filteredData = [], sortCol = null, sortDir = 1, currentPage = 1;
+
+    function renderTable() {
+      const table = document.getElementById('mainTable');
+      table.innerHTML = '';
+      if (!filteredData.length) return;
+
+      // Header
+      const thead = document.createElement('thead');
+      const headRow = document.createElement('tr');
+      filteredData[0].forEach((cell, i) => {
+        if (hiddenCols.includes(i)) return;
+        const th = document.createElement('th');
+        th.textContent = cell;
+        if (sortableCols.includes(i)) {
+          th.classList.add('sortable');
+          th.onclick = () => sortTable(i);
+          th.title = "Klik untuk urutkan";
+          const up = document.createElement('span');
+          up.className = "sort-icon" + ((sortCol === i && sortDir === 1) ? "" : " inactive");
+          up.innerHTML = "▲";
+          const down = document.createElement('span');
+          down.className = "sort-icon" + ((sortCol === i && sortDir === -1) ? "" : " inactive");
+          down.innerHTML = "▼";
+          th.appendChild(up);
+          th.appendChild(down);
+        }
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
+      // Body
+      const tbody = document.createElement('tbody');
+      const startIdx = (currentPage - 1) * rowsPerPage + 1;
+      const endIdx = Math.min(startIdx + rowsPerPage - 1, filteredData.length - 1);
+      for (let i = startIdx; i <= endIdx; i++) {
+        const row = filteredData[i];
+        if (!row) continue;
+        const tr = document.createElement('tr');
+        row.forEach((cell, j) => {
+          if (hiddenCols.includes(j)) return;
+          const td = document.createElement('td');
+          // Alignment kanan untuk kolom Nominal (index 3 setelah hidden column dihilangkan, sesuaikan jika perlu)
+          if (j === 3) td.classList.add('nominal-kanan');
+          // Tidak perlu hyperlink pada kolom apapun
+          td.textContent = cell;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+
+      renderPagination();
+      renderTotalRowInfo();
+    }
+
+    function renderPagination() {
+      const totalRows = filteredData.length - 1;
+      const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+      const pag = document.getElementById('pagination');
+      pag.innerHTML = '';
+      if (totalPages <= 1) return;
+      const prevBtn = document.createElement('button');
+      prevBtn.textContent = "Prev";
+      prevBtn.disabled = currentPage === 1;
+      prevBtn.onclick = () => { currentPage--; renderTable(); };
+      pag.appendChild(prevBtn);
+
+      let pageList = [];
+      if (totalPages <= 5) {
+        for (let i = 1; i <= totalPages; i++) pageList.push(i);
+      } else {
+        if (currentPage <= 3) {
+          pageList = [1, 2, 3, 4, 5];
+        } else if (currentPage >= totalPages - 2) {
+          pageList = [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+        } else {
+          pageList = [currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2];
+        }
+      }
+
+      if (pageList[0] > 1) {
+        const btn1 = document.createElement('button');
+        btn1.textContent = 1;
+        btn1.onclick = () => { currentPage = 1; renderTable(); };
+        pag.appendChild(btn1);
+        if (pageList[0] > 2) {
+          const ellipsis = document.createElement('span');
+          ellipsis.className = "ellipsis";
+          ellipsis.textContent = "...";
+          pag.appendChild(ellipsis);
+        }
+      }
+
+      pageList.forEach(i => {
+        if (i < 1 || i > totalPages) return;
+        const btn = document.createElement('button');
+        btn.textContent = i;
+        if (i === currentPage) btn.classList.add('active');
+        btn.disabled = i === currentPage;
+        btn.onclick = () => { currentPage = i; renderTable(); };
+        pag.appendChild(btn);
+      });
+
+      if (pageList[pageList.length - 1] < totalPages) {
+        if (pageList[pageList.length - 1] < totalPages - 1) {
+          const ellipsis = document.createElement('span');
+          ellipsis.className = "ellipsis";
+          ellipsis.textContent = "...";
+          pag.appendChild(ellipsis);
+        }
+        const btnLast = document.createElement('button');
+        btnLast.textContent = totalPages;
+        btnLast.onclick = () => { currentPage = totalPages; renderTable(); };
+        pag.appendChild(btnLast);
+      }
+
+      const nextBtn = document.createElement('button');
+      nextBtn.textContent = "Next";
+      nextBtn.disabled = currentPage === totalPages;
+      nextBtn.onclick = () => { currentPage++; renderTable(); };
+      pag.appendChild(nextBtn);
+    }
+
+    function renderTotalRowInfo() {
+      const info = document.getElementById('totalRowInfo');
+      const totalRows = filteredData.length - 1;
+      info.textContent = `Total baris: ${totalRows}`;
+    }
+
+    function sortTable(colIdx) {
+      if (sortCol === colIdx) sortDir *= -1;
+      else { sortCol = colIdx; sortDir = 1; }
+      filteredData = [filteredData[0]].concat(
+        filteredData.slice(1).sort((a, b) => {
+          let x = a[colIdx] || '', y = b[colIdx] || '';
+          if (colIdx === 2) { // Tanggal, deteksi format tanggal
+            let parseDate = s => {
+              if (!s) return 0;
+              if (s.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                let [d,m,y] = s.split('/');
+                return new Date(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`).getTime();
+              }
+              let dt = Date.parse(s);
+              return isNaN(dt) ? 0 : dt;
+            }
+            let dx = parseDate(x);
+            let dy = parseDate(y);
+            return (dx - dy) * sortDir;
+          }
+          let nx = parseFloat(x.replace(/[^0-9.-]/g, '')), ny = parseFloat(y.replace(/[^0-9.-]/g, ''));
+          if (!isNaN(nx) && !isNaN(ny)) return (nx - ny) * sortDir;
+          return x.localeCompare(y, 'id', {sensitivity:'base'}) * sortDir;
+        })
+      );
+      currentPage = 1;
+      renderTable();
+    }
+
+    // Cari di semua kolom yang tidak di-hidden
+    function filterData(keyword) {
+      keyword = keyword.toLowerCase();
+      filteredData = [tableData[0]];
+      for (let i = 1; i < tableData.length; i++) {
+        const row = tableData[i];
+        if (!row) continue;
+        if (row.some((cell, idx) => !hiddenCols.includes(idx) && (cell || '').toLowerCase().includes(keyword))) {
+          filteredData.push(row);
+        }
+      }
+    }
+
+    document.getElementById('searchInput').addEventListener('input', function() {
+      filterData(this.value);
+      currentPage = 1;
+      renderTable();
+    });
+
+    document.getElementById('rowsPerPage').addEventListener('change', function() {
+      rowsPerPage = parseInt(this.value, 10);
+      currentPage = 1;
+      renderTable();
+    });
+
+    fetch(csvUrl)
+      .then(res => res.text())
+      .then(csvText => {
+        Papa.parse(csvText, {
+          complete: function(results) {
+            tableData = results.data.filter(row => row.length > 1 && row.some(cell => cell !== ""));
+            filteredData = tableData.slice();
+            renderTable();
+          }
+        });
+      });
+  </script>
+</body>
+</html>
