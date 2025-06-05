@@ -160,8 +160,11 @@
       // Header
       const thead = document.createElement('thead');
       const headRow = document.createElement('tr');
+      // hitung index kolom ke-3 yang tampil
+      let tampilKe = -1;
       filteredData[0].forEach((cell, i) => {
         if (hiddenCols.includes(i)) return;
+        tampilKe++;
         const th = document.createElement('th');
         th.textContent = cell;
         if (sortableCols.includes(i)) {
@@ -190,12 +193,13 @@
         const row = filteredData[i];
         if (!row) continue;
         const tr = document.createElement('tr');
+        let tampilKe = -1;
         row.forEach((cell, j) => {
           if (hiddenCols.includes(j)) return;
+          tampilKe++;
           const td = document.createElement('td');
-          // Alignment kanan untuk kolom Nominal (index 3 setelah hidden column dihilangkan, sesuaikan jika perlu)
-          if (j === 3) td.classList.add('nominal-kanan');
-          // Tidak perlu hyperlink pada kolom apapun
+          // Alignment kanan untuk kolom ke-3 yang tampil
+          if (tampilKe === 2) td.classList.add('nominal-kanan');
           td.textContent = cell;
           tr.appendChild(td);
         });
