@@ -160,7 +160,7 @@
       // Header
       const thead = document.createElement('thead');
       const headRow = document.createElement('tr');
-      // hitung index kolom ke-3 yang tampil
+      // hitung index kolom tampil
       let tampilKe = -1;
       filteredData[0].forEach((cell, i) => {
         if (hiddenCols.includes(i)) return;
@@ -198,8 +198,8 @@
           if (hiddenCols.includes(j)) return;
           tampilKe++;
           const td = document.createElement('td');
-          // Alignment kanan untuk kolom ke-3 yang tampil
-          if (tampilKe === 2) td.classList.add('nominal-kanan');
+          // Alignment kanan untuk kolom ke-2 dan ke-3 dari kolom yang tampil
+          if (tampilKe === 1 || tampilKe === 2) td.classList.add('nominal-kanan');
           td.textContent = cell;
           tr.appendChild(td);
         });
